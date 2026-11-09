@@ -1,0 +1,160 @@
+---
+title: "Analyzing Medical Insurance Costs with Cross-Validation"
+subtitle: "STAT 330 Portfolio Project Proposal"
+author: "Bryce Bake, Colin Hunsaker, & Ethan Strang"
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## Question and audience
+
+**State one focused regression question. Identify the intended audience, explain why the answer matters, and name the response and important candidate predictors.**
+
+How well can age, sex, BMI, number of children, status as a smoker, and region of the United States that you live in be used to predict individual medical costs billed by health insurance companies? The intended audience would be for actuaries who are wanting to predict how much they should charge individual clients for medical insurance expenses. This matters because insurance companies could use the predictors to determine how much they should charge individual clients, saving both the clients and the insurance company money. The response is the costs billed by health insurance companies, and the important predictors are age, sex, BMI, number of children, status as a smoker, and region of the United States that an individual lives in.
+
+## Data
+
+**Provide a working source link or citation. Describe the observational unit, dimensions, response, candidate predictors, collection process if known, and evidence that the data can answer your question. Address permission to share or retrieve the data and any privacy, representation, measurement, or ethical concern.**
+
+https://www.kaggle.com/datasets/mosapabdelghany/medical-insurance-cost-dataset/data
+
+This dataset contains medical insurance cost information for 1338 individuals. It includes demographic and health-related variables such as age, sex, BMI, number of children, smoking status, and residential region in the US. The target variable (observational unit) is charges, which represents the medical insurance cost billed to the individual.We will use the predictors such as age, sex, BMI, number of children, smoking status, and residential region in the US to see if we can accurately predict the expected medical insurance cost billed to the individual. Since the data set is part of the Public Domain on Kaggle and no individuals personal identity information is being shared there are no permission or ethical restraints or concerns with using this data.
+
+```{r}
+library(tidyverse)
+
+insurance_data <- read.csv("insurance.csv")
+
+dim(insurance_data)
+names(insurance_data)
+```
+
+## One useful first look
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+glimpse(insurance_data)
+
+# 1. Age
+p1 <- ggplot(insurance_data, aes(x = age, y = charges)) +
+  geom_point(alpha = 0.6, color = "#0072B2") +
+  labs(title = "Age", x = "Age (Years)", y = "Charges (USD)") +
+  theme_minimal()
+
+# 2. BMI
+p2 <- ggplot(insurance_data, aes(x = bmi, y = charges)) +
+  geom_point(alpha = 0.6, color = "#D55E00") +
+  labs(title = "BMI", x = "Body Mass Index (BMI)", y = "Charges (USD)") +
+  theme_minimal()
+
+# 3. Children
+p3 <- ggplot(insurance_data, aes(x = as.factor(children), y = charges)) +
+  geom_boxplot(fill = "#009E73") +
+  labs(title = "Number of Children", x = "Number of Dependents", y = "Charges (USD)") +
+  theme_minimal()
+
+# 4. Smoker
+p4 <- ggplot(insurance_data, aes(x = smoker, y = charges)) +
+  geom_boxplot(fill = "#CC79A7") +
+  labs(title = "Smoking Status", x = "Smoker Status", y = "Charges (USD)") +
+  theme_minimal()
+
+# 5. Sex
+p5 <- ggplot(insurance_data, aes(x = sex, y = charges)) +
+  geom_boxplot(fill = "#F0E442") +
+  labs(title = "Biological Sex", x = "Sex", y = "Charges (USD)") +
+  theme_minimal()
+
+# 6. Region
+p6 <- ggplot(insurance_data, aes(x = region, y = charges)) +
+  geom_boxplot(fill = "#56B4E9") +
+  labs(title = "Geographic Region", x = "US Region", y = "Charges (USD)") +
+  theme_minimal()
+
+# Combine into a 2x3 grid
+grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 2,
+             top = "Impact of Patient Characteristics on Medical Insurance Billed Charges")
+```
+
+**In two to four sentences, explain the most important patterns. Do not make a causal claim unless the study design supports one.**
+
+These 6 plots are simple scatter plots or box plots that compare each individual predictor variable with the response variable (not accounting for the other variables). For the 'Sex', 'Children', and 'Region' variables, the means appear similar to each other, but the plots indicated a right skew. 'Age' and 'BMI' will need major attention and will probably require transformations. An expected result is that the cost for smokers is clearly higher than the nonsmokers.
+
+## Baseline model
+
+Our model is a Multiple Linear Regression model of individual medical charges on age, sex, BMI, number of children, smoker status, and region. I chose this model because it aligns perfectly with the research question mentioned above, while being easily interpretable: each prediction coefficient gives the average change in charges, associated with a one-unit change in that predictor while holding the others constant. This results in the final model being:
+
+```{r}
+library(tidyverse)
+
+insurance_data <- read.csv("insurance.csv", stringsAsFactors = TRUE)
+summary(insurance_data)
+
+baseline_insurance_model <- lm(charges ~ age + sex + bmi + children + smoker + region, data = insurance_data)
+summary(baseline_insurance_model)
+confint(baseline_insurance_model)
+
+# Diagnostics (I don't know if we need this or not, so I'll use one model from each test to test for each individual diagnostic)
+insurance_aug <- insurance_data |> mutate(std_residual = rstandard(baseline_insurance_model))
+
+ggplot(insurance_aug, aes(sample = std_residual)) +
+  stat_qq(alpha = 0.6) +
+  stat_qq_line(color = "#0047BA", linewidth = 1) +
+  labs(x = "Theoretical Quantiles",
+       y = "Standardized Residual Quantiles",
+       title = "Normal Q-Q Plot of Standardized Residuals") +
+  theme_minimal()
+
+insurance_aug2 <- insurance_data |>
+  mutate(fitted   = fitted(baseline_insurance_model),
+         residual = resid(baseline_insurance_model))
+
+insurance_aug2 |>
+  ggplot(aes(x = fitted, y = residual)) +
+  geom_point(alpha = 0.6) +
+  geom_hline(yintercept = 0, color = "#0047BA") +
+  labs(x = "Fitted Charges (USD)",
+       y = "Residual (USD)",
+       title = "Residuals vs. Fitted Values") +
+  theme_minimal()
+```
+
+The above analysis shows our baseline model to be:
+
+$$\widehat{\text{charges}} = -11938.5 + 256.9(\text{age}) - 131.3(\text{male}) + 339.2(\text{bmi}) + 475.5(\text{children}) + 23848.5(\text{smoker}) - 353.0(\text{NW}) - 1035.0(\text{SE}) - 960.0(\text{SW})$$
+
+Holding age, sex, BMI, children and region constant, smokers are predicted to be billed \$23,850 more on average than non-smokers (95% CI: \~\$23,040 to \~\$24,660 . Smoking status is by far the strongest predictor in the model. One specific limitation of this model can be seen while looking at the Q-Q plot. The data is obviously not normal, and seems pretty scary. We will test out every transformation to see which model would result in the best fit. Following that, we will use a series of tests to determine which algorithm we should use to finalize our model under a certain metric. This is just the beginning, but we will ensure that our finalized model will have much prettier diagnostics than the baseline model we have.
+
+## Where the analysis could go
+
+**Choose two different course-method families from the project instructions. For each, state what you might do and how it could help answer the question. These methods will form the core of the project and may change after feedback.**
+
+1.  **Possible direction:** 
+Use cross-validation and a training/test split to evaluate how accurately the model predicts medical insurance costs for individuals not used to fit the model. This could help determine whether the model produces reliable cost estimates for new policyholders and whether its predictions could be useful when developing insurance premiums.(A more Actuarial specific approach)
+
+2.  **Possible direction:** 
+Use multiple linear regression to model medical insurance charges based on available predictors such as age, BMI, smoking status, sex, and number of children. From an actuarial perspective, this could help an insurer estimate an individual's expected medical costs and understand which characteristics are most useful for predicting those costs.
+
+## AI disclosure and sources
+
+**Question and Audience** - No AI
+
+**Data** - No AI
+
+**One Useful First Look** - AI was used to place the 6 plots into one visual, and it was used to correct minor coding errors.
+
+**Baseline Model** - AI was used to make the baseline model look beautifully embedded into the qmd file, as well as fixing the code to augment the data which allowed it to run both the Q-Q plot and Residuals vs Fitted Value plot.
+
+**Where the analysis could go** - Used AI to come up with a second direction we could possibly take the project as a backup. 
+
+**Sources** - No AI
