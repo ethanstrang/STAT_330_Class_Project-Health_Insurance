@@ -15,7 +15,7 @@ execute:
 ---
 
 ## Question and audience
-
+ 
 **State one focused regression question. Identify the intended audience, explain why the answer matters, and name the response and important candidate predictors.**
 
 How well can age, sex, BMI, number of children, status as a smoker, and region of the United States that you live in be used to predict individual medical costs billed by health insurance companies? The intended audience would be for actuaries who are wanting to predict how much they should charge individual clients for medical insurance expenses. This matters because insurance companies could use the predictors to determine how much they should charge individual clients, saving both the clients and the insurance company money. The response is the costs billed by health insurance companies, and the important predictors are age, sex, BMI, number of children, status as a smoker, and region of the United States that an individual lives in.
