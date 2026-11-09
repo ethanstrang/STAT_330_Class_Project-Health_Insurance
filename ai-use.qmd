@@ -1,0 +1,50 @@
+---
+title: "AI Use and Verification"
+description: "A concise record of AI-supported work on this project."
+author: "Ethan Strang, Bryce Bake, Colin Hunsaker"
+format:
+  html:
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+This page is a work log, not a second report. Short bullets are welcome. It is separate from the final case study and does not count toward the 750 to 1,000 word range.
+
+## Starting point
+
+**AI system and date:** Gemini, November 2026.
+
+- **Research question:** How accurately can age, sex, BMI, number of children, smoking status, and US geographic region predict individual billed medical insurance charges for health insurance actuarial pricing?
+- **Response:** `charges` (USD)
+- **Baseline model:** Multiple linear regression (`charges ~ age + sex + bmi + children + smoker + region`).
+- **Baseline result:** Smoking status was by far the largest factor ($\hat{\beta}_{\text{smoker}} \approx \$23,849$, $p < 0.001$, 95% CI: \[\$23,040, \$24,660\]), with age ($\hat{\beta} \approx \$257/\text{year}$) and BMI ($\hat{\beta} \approx \$339/\text{unit}$) also showing positive associations.
+- **Specific limitation or opportunity:** The residuals vs. fitted plot displays severe heteroscedasticity and distinct separate curvature clusters (caused non-linear interaction between BMI and smoking status). The normal Q-Q plot shows that the data is right-tailed due to positive skewness in insurance charges. While log transformations and interaction will address linear model structure, standard linear regression may still fail to capture the step threshold jumps
+
+## Substantive prompts
+
+"Hello Gemini! I am doing a regression study class in R and Quarto for my stats class. My research question is: how well do age, sex, BMI, number of children, smoking status, and US region predict individual medical insurance charges. The response is `charges` (right-skewed USD), the main predictors are `age`, `sex`, `bmi`, `children`, `smoker`, and `region`, and my model is a multiple linear regression (`lm(charges ~ age + sex + bmi + children + smoker + region)`) model. My main result so far is that smoking status is the dominant factor, followed by BMI, and age. I found this limitation: the diagnostics show severe right-skewed curvature; exploratory analysis suggests a strong non-linear interaction effect where BMI only triggers massive charges if the individual is a smoker. Could you suggest three extensions that keep the core analysis connected to regression? For each extension could you explain how it strengthens the same research question, how its result would enter the final case study, the steps to get there, and a few ways I could verify it?"
+
+## My decisions
+
+- **Accepted:** We will use the recommendation to use a Random Forest regression model as a comparator. It directly tests whether "splits" can natively capture the severe BMI-by-smoker threshold without imposing form assumptions. We also accepted evaluating both models using identical cross-validation folds with RMSE.
+- **Changed:** Gemini initially suggested tuning a large grid of parameters. We simplified this to a standard default setup so the extension would serve as an interpretable benchmark rather than shifting the case study into a machine learning optimization exercise.
+- **Rejected or corrected:** Gemini suggested testing synthetic data generation to rebalance high-cost charges. We rejected this because charges is a continuous financial outcome. synthetic oversampling would distort expected values and actuarial premium estimates.
+
+**Connection to the final case study:** This will be updated as we finish the project.
+
+## Independent verification
+
+1.  **Identical Cross-Validation + Metric Calculation:**\
+    We will verify the Random Forest performance by fixing the seed and creating explicit cross-validation partitions. This will allow us to perform the same cross validation between the Random Forest regression model and the base model that we have. We will also R to calculate RMSE by "hand" and confirmed that the test-fold error matches the error reported within the ranger package.
+2.  **Package Documentation and Monotonicity Checks:**\
+    We will verify the package implementation, argument defaults, and split rules against the official CRAN documentation for the `ranger` package. Furthermore, we will run checks on `age` and `bmi` to confirm the model showed expected functional behavior (monotonic upward trend in predicted medical costs with advancing age and obesity).
+
+## Remaining limitation
+
+While the Random Forest comparator accurately identifies non-linear splits and yields lower predictive RMSE, it lacks direct, closed-form parametric coefficients. Unlike multiple linear regression, an actuary cannot inspect a single interpretable coefficient with exact analytical confidence intervals for filing rate regulations with state insurance departments. Interpretation will be more difficult, but prediction will potentially be better.
+
+## Other AI use, if any
+
+None for right now
